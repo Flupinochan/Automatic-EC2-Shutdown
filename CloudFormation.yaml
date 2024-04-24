@@ -1,0 +1,136 @@
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - Label:
+          default: Input Parameters Configuration
+        Parameters:
+          - S3NameForCodePipeline
+
+Parameters: 
+  LambdaName:
+    Type: String
+    Default: "Automatic-EC2-Shutdown-Lambda"
+  LambdaIAMRoleName:
+    Type: String
+    Default: "Automatic-EC2-Shutdown-Role"
+  LambdaIAMPolicyName:
+    Type: String
+    Default: "Automatic-EC2-Shutdown-Policy"
+  LambdaCloudWatchLogsName:
+    Type: String
+    Default: "Automatic-EC2-Shutdown-Lambda-Logs"
+  EventBridgeStartEC2RuleName:
+    Type: String
+    Default: "Automatic-EC2-Start-Rule"
+  EventBridgeStopEC2RuleName:
+    Type: String
+    Default: "Automatic-EC2-Stop-Rule"
+  EventBridgeRuleIAMRoleName:
+    Type: String
+    Default: "Automatic-EC2-Shutdown-Role"
+  EventBridgeRuleIAMPolicyName:
+    Type: String
+    Default: "Automatic-EC2-Shutdown-Policy"
+  # Start EC2 every day at 09:00 JST
+  CronEC2Start:
+    Type: String
+    Default: "cron(0 0 * * ? *)"
+  # Stop EC2 every day at 22:00 JST
+  CronEC2Stop:
+    Type: String
+    Default: "cron(0 13 * * ? *)"
+
+Conditions: 
+
+Resources: 
+  Lambda:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Ref LambdaName
+      Handler: "index.lambda_handler"
+      Role: !GetAtt LambdaIAMRole.Arn
+      Runtime: "python3.12"
+      Timeout: 300
+      LoggingConfig:
+        LogGroup: !Ref LambdaCloudWatchLogs
+      Code:
+        ZipFile: |
+          import boto3
+          import cfnresponse
+          def lambda_handler(event, context):
+              s3 = boto3.resource('s3')
+              try:
+                  if event['RequestType'] == 'Delete':
+                      bucket = s3.Bucket(event['ResourceProperties']['BucketName'])
+                      bucket.objects.all().delete()
+                      bucket.object_versions.all().delete()
+                      s3.Bucket(event['ResourceProperties']['BucketName']).delete()
+                  cfnresponse.send(event, context, cfnresponse.SUCCESS, {})
+              except Exception as e:
+                  print("Error: ", e)
+                  cfnresponse.send(event, context, cfnresponse.FAILED, {})
+  LambdaIAMRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Ref LambdaIAMRoleName
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: !Ref LambdaIAMPolicyName
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - ec2:StartInstances
+                  - ec2:StopInstances
+                Resource:
+                  - "*"
+  LambdaCloudWatchLogs:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Ref LambdaCloudWatchLogsName
+      LogGroupClass: "INFREQUENT_ACCESS"
+      RetentionInDays: 1
+
+  EventBridgeRuleName:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: !Ref EventBridgeRuleName
+      EventBusName: "default"
+      State: "ENABLED"
+      ScheduleExpression: !Ref CronEC2Start
+      Targets:
+        - Arn: !GetAtt Lambda.Arn
+          Id: Lambda
+          RoleArn: !GetAtt EventBridgeRuleIAMRole.Arn
+  EventBridgeRuleIAMRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Ref EventBridgeRuleIAMRoleName
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Action:
+              - "sts:AssumeRole"
+            Principal:
+              Service:
+                - events.amazonaws.com
+      Policies:
+        - PolicyName: !Ref EventBridgeRuleIAMPolicyName
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - "lambda:InvokeFunction"
+                Resource:
+                  - !GetAtt Lambda.Arn
+
+Outputs:
