@@ -173,6 +173,8 @@ Resources:
                   - ec2:DescribeInstances
                   - ec2:StartInstances
                   - ec2:StopInstances
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
                 Resource:
                   - "*"
       # PermissionsBoundary: 
