@@ -129,6 +129,7 @@ Resources:
                   raise
   LambdaPermission1:
     Type: AWS::Lambda::Permission
+    Condition: IsUseCronEC2Start
     Properties:
       Action: "lambda:InvokeFunction"
       FunctionName: !Ref Lambda
@@ -136,6 +137,7 @@ Resources:
       SourceArn: !GetAtt EventBridgeStartEC2Rule.Arn
   LambdaPermission2:
     Type: AWS::Lambda::Permission
+    Condition: IsUseCronEC2Stop
     Properties:
       Action: "lambda:InvokeFunction"
       FunctionName: !Ref Lambda
