@@ -23,7 +23,7 @@ Parameters:
     Default: "Automatic-EC2-Shutdown-Lambda"
   LambdaIAMRoleName:
     Type: String
-    Default: "Automatic-EC2-Shutdown-Role"
+    Default: "Automatic-EC2-Shutdown-Lambda-Role"
   LambdaIAMPolicyName:
     Type: String
     Default: "Automatic-EC2-Shutdown-Policy"
@@ -38,7 +38,7 @@ Parameters:
     Default: "Automatic-EC2-Stop-Rule"
   EventBridgeRuleIAMRoleName:
     Type: String
-    Default: "Automatic-EC2-Shutdown-Role"
+    Default: "Automatic-EC2-Shutdown-EventBridge-Role"
   EventBridgeRuleIAMPolicyName:
     Type: String
     Default: "Automatic-EC2-Shutdown-Policy"
