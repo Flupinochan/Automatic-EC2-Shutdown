@@ -36,13 +36,13 @@ Parameters:
     Default: "Automatic-EC2-Stop-Rule"
   UseCronEC2Start:
     Type: String
-    Default: "True"
+    Default: "False"
     AllowedValues:
       - "True"
       - "False"
   UseCronEC2Stop:
     Type: String
-    Default: "False"
+    Default: "True"
     AllowedValues:
       - "True"
       - "False"
