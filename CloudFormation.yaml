@@ -44,16 +44,16 @@ Parameters:
     Default: "Automatic-EC2-Shutdown-Policy"
   UseCronEC2Start:
     Type: String
-    Default: True
+    Default: "True"
     AllowedValues:
-      - True
-      - False
+      - "True"
+      - "False"
   UseCronEC2Stop:
     Type: String
-    Default: False
+    Default: "False"
     AllowedValues:
-      - True
-      - False
+      - "True"
+      - "False"
   # Start all EC2 every day at 09:00 JST
   CronEC2Start:
     Type: String
@@ -66,8 +66,8 @@ Parameters:
 
 
 Conditions: 
-  IsUseCronEC2Start: !Equals [ !Ref UseCronEC2Start, 'True' ]
-  IsUseCronEC2Stop: !Equals [ !Ref UseCronEC2Stop, 'True' ]
+  IsUseCronEC2Start: !Equals [ !Ref UseCronEC2Start, "True" ]
+  IsUseCronEC2Stop: !Equals [ !Ref UseCronEC2Stop, "True" ]
 
 
 
