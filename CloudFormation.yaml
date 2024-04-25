@@ -10,8 +10,6 @@ Metadata:
           - LambdaCloudWatchLogsName
           - EventBridgeStartEC2RuleName
           - EventBridgeStopEC2RuleName
-          - EventBridgeRuleIAMRoleName
-          - EventBridgeRuleIAMPolicyName
           - UseCronEC2Start
           - UseCronEC2Stop
           - CronEC2Start
@@ -36,12 +34,6 @@ Parameters:
   EventBridgeStopEC2RuleName:
     Type: String
     Default: "Automatic-EC2-Stop-Rule"
-  EventBridgeRuleIAMRoleName:
-    Type: String
-    Default: "Automatic-EC2-Shutdown-EventBridge-Role"
-  EventBridgeRuleIAMPolicyName:
-    Type: String
-    Default: "Automatic-EC2-Shutdown-Policy"
   UseCronEC2Start:
     Type: String
     Default: "True"
@@ -135,6 +127,20 @@ Resources:
               except:
                   print("ec2_stopにて、エラーが発生しました")
                   raise
+  LambdaPermission1:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: "lambda:InvokeFunction"
+      FunctionName: !Ref Lambda
+      Principal: "events.amazonaws.com"
+      SourceArn: !GetAtt EventBridgeStartEC2Rule.Arn
+  LambdaPermission2:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: "lambda:InvokeFunction"
+      FunctionName: !Ref Lambda
+      Principal: "events.amazonaws.com"
+      SourceArn: !GetAtt EventBridgeStopEC2Rule.Arn
   LambdaIAMRole:
     Type: AWS::IAM::Role
     Properties:
@@ -192,32 +198,8 @@ Resources:
       Targets:
         - Arn: !GetAtt Lambda.Arn
           Id: Lambda
-          RoleArn: !GetAtt EventBridgeRuleIAMRole.Arn
           Input:
             !Sub |
               {
                 "action": "stop"
               } 
-  EventBridgeRuleIAMRole:
-    Type: AWS::IAM::Role
-    Properties:
-      RoleName: !Ref EventBridgeRuleIAMRoleName
-      AssumeRolePolicyDocument:
-        Version: "2012-10-17"
-        Statement:
-          - Effect: Allow
-            Action:
-              - "sts:AssumeRole"
-            Principal:
-              Service:
-                - events.amazonaws.com
-      Policies:
-        - PolicyName: !Ref EventBridgeRuleIAMPolicyName
-          PolicyDocument:
-            Version: "2012-10-17"
-            Statement:
-              - Effect: Allow
-                Action:
-                  - "lambda:InvokeFunction"
-                Resource:
-                  - !GetAtt Lambda.Arn
