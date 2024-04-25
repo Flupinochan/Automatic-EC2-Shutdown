@@ -54,11 +54,11 @@ Parameters:
     AllowedValues:
       - True
       - False
-  # Start EC2 every day at 09:00 JST
+  # Start all EC2 every day at 09:00 JST
   CronEC2Start:
     Type: String
     Default: "cron(0 0 * * ? *)"
-  # Stop EC2 every day at 22:00 JST
+  # Stop all EC2 every day at 22:00 JST
   CronEC2Stop:
     Type: String
     Default: "cron(0 13 * * ? *)"
