@@ -181,7 +181,6 @@ Resources:
       Targets:
         - Arn: !GetAtt Lambda.Arn
           Id: Lambda
-          RoleArn: !GetAtt EventBridgeRuleIAMRole.Arn
           Input:
             !Sub |
               {
