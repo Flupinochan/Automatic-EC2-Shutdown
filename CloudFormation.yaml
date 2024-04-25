@@ -36,30 +36,39 @@ Parameters:
     Default: "Automatic-EC2-Stop-Rule"
   UseCronEC2Start:
     Type: String
+    Description: "Please select [True] if you want to automatically start EC2 using Cron"
     Default: "False"
     AllowedValues:
       - "True"
       - "False"
   UseCronEC2Stop:
     Type: String
+    Description: "Please select [True] if you want to automatically stop EC2 using Cron"
     Default: "True"
     AllowedValues:
       - "True"
       - "False"
-  # Start all EC2 every day at 09:00 JST
   CronEC2Start:
     Type: String
+    Description: "This is a Cron setting for automatically starting EC2 (default at 09:00 JST)"
     Default: "cron(0 0 * * ? *)"
-  # Stop all EC2 every day at 22:00 JST
   CronEC2Stop:
     Type: String
+    Description: "This is a Cron setting for automatically stopping EC2 (default at 22:00 JST)"
     Default: "cron(0 13 * * ? *)"
+  # UseBoundary:
+  #   Type: String
+  #   Default: "False"
+  #   AllowedValues:
+  #     - "True"
+  #     - "False"
 
 
 
 Conditions: 
   IsUseCronEC2Start: !Equals [ !Ref UseCronEC2Start, "True" ]
   IsUseCronEC2Stop: !Equals [ !Ref UseCronEC2Stop, "True" ]
+  # ShouldUseBoundary: !Equals [ !Ref UseBoundary, "True" ]
 
 
 
@@ -161,15 +170,20 @@ Resources:
             Statement:
               - Effect: Allow
                 Action:
+                  - ec2:DescribeInstances
                   - ec2:StartInstances
                   - ec2:StopInstances
                 Resource:
                   - "*"
+      # PermissionsBoundary: 
+      #   !If 
+      #     - ShouldUseBoundary
+      #     - !Sub "arn:${AWS::Partition}:iam::${AWS::AccountId}:policy/boundary"
+      #     - !Ref 'AWS::NoValue'
   LambdaCloudWatchLogs:
     Type: AWS::Logs::LogGroup
     Properties:
       LogGroupName: !Ref LambdaCloudWatchLogsName
-      LogGroupClass: "INFREQUENT_ACCESS"
       RetentionInDays: 1
 
   EventBridgeStartEC2Rule:
