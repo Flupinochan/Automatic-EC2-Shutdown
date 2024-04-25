@@ -4,7 +4,18 @@ Metadata:
       - Label:
           default: Input Parameters Configuration
         Parameters:
-          - S3NameForCodePipeline
+          - LambdaName
+          - LambdaIAMRoleName
+          - LambdaIAMPolicyName
+          - LambdaCloudWatchLogsName
+          - EventBridgeStartEC2RuleName
+          - EventBridgeStopEC2RuleName
+          - EventBridgeRuleIAMRoleName
+          - EventBridgeRuleIAMPolicyName
+          - UseCronEC2Start
+          - UseCronEC2Stop
+          - CronEC2Start
+          - CronEC2Stop
 
 Parameters: 
   LambdaName:
@@ -31,6 +42,18 @@ Parameters:
   EventBridgeRuleIAMPolicyName:
     Type: String
     Default: "Automatic-EC2-Shutdown-Policy"
+  UseCronEC2Start:
+    Type: String
+    Default: True
+    AllowedValues:
+      - True
+      - False
+  UseCronEC2Stop:
+    Type: String
+    Default: False
+    AllowedValues:
+      - True
+      - False
   # Start EC2 every day at 09:00 JST
   CronEC2Start:
     Type: String
@@ -40,7 +63,13 @@ Parameters:
     Type: String
     Default: "cron(0 13 * * ? *)"
 
+
+
 Conditions: 
+  IsUseCronEC2Start: !Equals [ !Ref UseCronEC2Start, 'True' ]
+  IsUseCronEC2Stop: !Equals [ !Ref UseCronEC2Stop, 'True' ]
+
+
 
 Resources: 
   Lambda:
@@ -50,25 +79,62 @@ Resources:
       Handler: "index.lambda_handler"
       Role: !GetAtt LambdaIAMRole.Arn
       Runtime: "python3.12"
-      Timeout: 300
+      Timeout: 900
       LoggingConfig:
         LogGroup: !Ref LambdaCloudWatchLogs
       Code:
         ZipFile: |
           import boto3
-          import cfnresponse
+          ec2_client = boto3.client("ec2")
           def lambda_handler(event, context):
-              s3 = boto3.resource('s3')
               try:
-                  if event['RequestType'] == 'Delete':
-                      bucket = s3.Bucket(event['ResourceProperties']['BucketName'])
-                      bucket.objects.all().delete()
-                      bucket.object_versions.all().delete()
-                      s3.Bucket(event['ResourceProperties']['BucketName']).delete()
-                  cfnresponse.send(event, context, cfnresponse.SUCCESS, {})
-              except Exception as e:
-                  print("Error: ", e)
-                  cfnresponse.send(event, context, cfnresponse.FAILED, {})
+                  action = event["action"]
+                  ec2_ids = ec2_describe(action)
+                  if ec2_ids:
+                      if action == "start":
+                          ec2_start(ec2_ids)
+                      elif action == "stop":
+                          ec2_stop(ec2_ids)
+              except:
+                  print("lambda_handlerにて、エラーが発生しました")
+          def ec2_describe(action):
+              try:
+                  if action == "start":
+                      ec2_status = "stopped"
+                  elif action == "stop":
+                      ec2_status = "running"
+                  ec2_ids = []
+                  paginator = ec2_client.get_paginator("describe_instances")
+                  response_iterator = paginator.paginate(
+                      Filters=[
+                          {
+                              "Name": "instance-state-name",
+                              "Values": [
+                                  ec2_status,
+                              ],
+                          },
+                      ],
+                  )
+                  for response in response_iterator:
+                      for reservation in response["Reservations"]:
+                          for instance in reservation["Instances"]:
+                              ec2_ids.append(instance["InstanceId"])
+                  return ec2_ids
+              except:
+                  print("ec2_describeにて、エラーが発生しました")
+                  raise
+          def ec2_start(ec2_ids):
+              try:
+                  ec2_client.start_instances(InstanceIds=ec2_ids)
+              except:
+                  print("ec2_startにて、エラーが発生しました")
+                  raise
+          def ec2_stop(ec2_ids):
+              try:
+                  ec2_client.stop_instances(InstanceIds=ec2_ids)
+              except:
+                  print("ec2_stopにて、エラーが発生しました")
+                  raise
   LambdaIAMRole:
     Type: AWS::IAM::Role
     Properties:
@@ -98,10 +164,11 @@ Resources:
       LogGroupClass: "INFREQUENT_ACCESS"
       RetentionInDays: 1
 
-  EventBridgeRuleName:
+  EventBridgeStartEC2Rule:
     Type: AWS::Events::Rule
+    Condition: IsUseCronEC2Start
     Properties:
-      Name: !Ref EventBridgeRuleName
+      Name: !Ref EventBridgeStartEC2RuleName
       EventBusName: "default"
       State: "ENABLED"
       ScheduleExpression: !Ref CronEC2Start
@@ -109,6 +176,28 @@ Resources:
         - Arn: !GetAtt Lambda.Arn
           Id: Lambda
           RoleArn: !GetAtt EventBridgeRuleIAMRole.Arn
+          Input:
+            !Sub |
+              {
+                "action": "start"
+              } 
+  EventBridgeStopEC2Rule:
+    Type: AWS::Events::Rule
+    Condition: IsUseCronEC2Stop
+    Properties:
+      Name: !Ref EventBridgeStopEC2RuleName
+      EventBusName: "default"
+      State: "ENABLED"
+      ScheduleExpression: !Ref CronEC2Stop
+      Targets:
+        - Arn: !GetAtt Lambda.Arn
+          Id: Lambda
+          RoleArn: !GetAtt EventBridgeRuleIAMRole.Arn
+          Input:
+            !Sub |
+              {
+                "action": "stop"
+              } 
   EventBridgeRuleIAMRole:
     Type: AWS::IAM::Role
     Properties:
@@ -132,5 +221,3 @@ Resources:
                   - "lambda:InvokeFunction"
                 Resource:
                   - !GetAtt Lambda.Arn
-
-Outputs:
